@@ -9,7 +9,7 @@
 using namespace std;
 
 bool clientLogic(TCP_Client* Client);
-void loginLDAP(TCP_Client* Client,string &logedInUser);
+void loginLDAP(TCP_Client* Client,string &logedInUser,int &failedLogins);
 void readMail(TCP_Client* Client,const string &user);
 void delMail(TCP_Client* Client,const string &user);
 void sendMail(TCP_Client* Client,const string &user);
@@ -54,6 +54,7 @@ int main(int argc, char* argv[]) {
 bool clientLogic(TCP_Client* Client)
 {
     //CLIENT - LOGIK
+    int failedLogins = 0;
     int option;
     string logedInUser="ERROR_USER";
     cout << endl << "-----------------------------------------------------------------------------------------------" << endl;
@@ -72,6 +73,9 @@ bool clientLogic(TCP_Client* Client)
     {
         case 0:
             cout << "Closing Client..." << endl;
+            string msg = "QUIT\n";
+            Client->sendData(msg);
+            delete(Client);
             return false;
         case 1: //SEND
             sendMail(Client,logedInUser);
@@ -86,7 +90,7 @@ bool clientLogic(TCP_Client* Client)
             delMail(Client,logedInUser);
             break;
         case 5: // LOGIN
-            loginLDAP(Client,logedInUser);
+            loginLDAP(Client,logedInUser,failedLogins);
             break;
         default:
             cout << "False Input!" << endl;
@@ -96,7 +100,7 @@ bool clientLogic(TCP_Client* Client)
     return true;
 }
 
-void loginLDAP(TCP_Client* Client,string &logedInUser) {
+void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins) {
     string username="";
     cout << "Enter FHTW username (max 8 letters):";
     do{
@@ -147,6 +151,11 @@ void loginLDAP(TCP_Client* Client,string &logedInUser) {
     else if(strcmp (result,"ERR\n") == 0)
     {
         cout << "Server ERR" << endl;
+        failedLogins++;
+        if(failedLogins>=3)
+        {
+            cout << "3x failed login - you have been banned from the server!" <<endl;
+        }
         logedInUser="ERROR_USER";
     }
     else
