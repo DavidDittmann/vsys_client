@@ -6,7 +6,7 @@
 #include <sys/time.h>
 
 /*
-OK das ist ein Test
+OK das ist ein 2. Test
 */
 
 using namespace std;
