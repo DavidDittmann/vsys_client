@@ -180,7 +180,7 @@ void sendMail(TCP_Client* Client,const string &user){
     do{
         if(subject.length()>80 || subject.length()==0)
             cout << "Betreff muss mehr als 0, aber max. 80 Zeichen lang sein" << endl;
-        to = "";
+        subject = "";
         cin >> subject;
     }while(subject.length()>80||subject.length()==0);
     cout << "Nachricht eingeben:" << endl;
