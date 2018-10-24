@@ -195,7 +195,7 @@ void readMail(TCP_Client* Client,const string &user){
         }
         else if(response.find("OK\n")!=string::npos)
         {
-            string msg = response.substr(response.find("OK\n")+3);
+            string msg = response.substr(response.find("OK\n")+3); //TEST RELEVANT
             cout << "Nachricht:\n" << msg << endl;
         }
         else
@@ -309,7 +309,7 @@ void listMail(TCP_Client* Client,const string &user){
 
         cout << "Nachrichten:" << endl;
         int msgCount = 1, pos=0, i=0;
-        vector <string> subjects;
+        //vector <string> subjects;
         while((pos = response.find("\n")) != string::npos && i<= msgCount && msgCount != 0)
         {
             if(i == 0)
@@ -319,7 +319,7 @@ void listMail(TCP_Client* Client,const string &user){
             else
             {
                 cout << i-1 << ": " << response.substr(0,pos) << endl;
-                subjects.push_back(response.substr(0,pos));
+                //subjects.push_back(response.substr(0,pos));
             }
             response.erase(0,pos+1);
             i++;
