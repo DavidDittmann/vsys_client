@@ -6,7 +6,7 @@
 
 CC = g++
 #CFLAGS = -std=c++11 -g -D_BSD_SOURCE -D_XOPEN_SOURCE -Wall -o
-CFLAGS = -std=c++11 -Wall -DLDAP_DEPRECATED -o
+CFLAGS = -std=c++11 -Wall -o
 
 all: Client
 
