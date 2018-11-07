@@ -11,53 +11,72 @@ OK das ist ein 2. Test
 
 using namespace std;
 
+//controls user input
 bool clientLogic(TCP_Client* Client, string &logenInUser,int &failedLogins,bool &isBanned);
+
+//login to fh technikum ldap with if17.. username and password
+//server bans after third failed login
 void loginLDAP(TCP_Client* Client,string &logedInUser,int &failedLogins,bool &isBanned);
+
+//requst specific mail from server and print mail's content to console
 void readMail(TCP_Client* Client,const string &user,bool &isBanned);
+
+//delete specific mail from server
 void delMail(TCP_Client* Client,const string &user,bool &isBanned);
+
+//send new mail with name, subject, content to server
 void sendMail(TCP_Client* Client,const string &user,bool &isBanned);
+
+//list all mails stored on server
 void listMail(TCP_Client* Client,const string &user);
+
 int cinNumber(void);
 
 
 
 int main(int argc, char* argv[]) {
 
-    bool cancel = false;
+    //require port / address as cl params
     if(argc != 3)
     {
         cout << "Usage: ./Client <Address> <PortNr.>" << endl;
-        cancel = true;
+        return 1;
     }
 
-    string addr = argv[2];
+    //check if port is valid
+    string addr = argv[2]; //ERROR fliegt dir um die ohren wenn argc < 3, wuerd statt dem cancel einfach gleich returnen
     long port = -1;
     port = strtol (argv[1],NULL,10);
     if(port > 65535 || port < 1024)
     {
         cout << "Usage: ./Client <Address> <PortNr.>" << endl;
         cout << "Port musst be greater than 1024 and smaller than 65535" << endl;
-        cancel = true;
+        return 1;
     }
     int p = (int) port;
 
-    if(!cancel)
-    {
-        TCP_Client* Client = new TCP_Client(p,addr);
+    //pass port, address of server to tcp_client
+    TCP_Client* Client = new TCP_Client(p,addr);
 
-        __try{
+    __try{
             cout << "Started new session..." << endl;
+
+            //local fd
             Client->openSocket();
+            //connect to server
             if(Client->connectToHost())
             {
                 cout << "Connected to host: " << addr << ":" << port << endl;
             }
+
             bool ret = true;
-            string user = "ERROR_USER";
+            string user = "ERROR_USER"; //default user = ERROR_USER
             int failedLogins = 0;
             bool isBanned = false;
+
             while(ret && !isBanned)
             {
+                //starting client user interface
                 ret = clientLogic(Client,user,failedLogins,isBanned);
             }
         }
@@ -67,7 +86,6 @@ int main(int argc, char* argv[]) {
         }
 
         delete(Client);
-    }
 
     return 0;
 }
@@ -136,6 +154,7 @@ void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins,bool &i
 
     cin.clear();cin.ignore();
 
+    //hide console input, when entering password
     struct termios oflags, nflags;
     char password[64];
 
@@ -160,21 +179,25 @@ void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins,bool &i
         //return EXIT_FAILURE;
     }
 
+    //request for server
     string message = "";
     message += "LOGIN\n";
     message += username + "\n";
     message += password; message += "\n";
 
+    //send request and receive response
     Client->sendData(message);
     char result[10]; int size = 10;
     memset(result,0,sizeof(char)*size);
     Client->recvData(size,result);
 
+    //LDAP Login success
     if(strcmp (result,"OK\n") == 0)
     {
         cout << "Server OK" << endl;
         logedInUser = username;
     }
+    //LDAP Login failed, increment failedlogins to ban user
     else if(strcmp (result,"ERR\n") == 0)
     {
         cout << "Server ERR" << endl;
@@ -186,6 +209,7 @@ void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins,bool &i
         }
         logedInUser="ERROR_USER";
     }
+    //server responded with ip ban
     else if(strcmp (result,"BAN\n") == 0)
     {
         cout << "You got IP-Banned!" << endl;
@@ -200,6 +224,8 @@ void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins,bool &i
 }
 
 void readMail(TCP_Client* Client,const string &user,bool &isBanned){
+
+    //allow this function, if user is logged in
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
@@ -209,6 +235,7 @@ void readMail(TCP_Client* Client,const string &user,bool &isBanned){
         cout << "Welche Nachricht wollen Sie lesen?" << endl;
         msgNumber = cinNumber();
 
+        //send/receive to/from server
         string msg = "READ\n"+user+"\n"+to_string(msgNumber)+"\n";
         Client->sendData(msg);
         char result[4098]; int size = 4098;
@@ -234,6 +261,8 @@ void readMail(TCP_Client* Client,const string &user,bool &isBanned){
     }
 }
 void delMail(TCP_Client* Client,const string &user,bool &isBanned){
+    
+    //allow this function, if user is logged in
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
@@ -243,6 +272,7 @@ void delMail(TCP_Client* Client,const string &user,bool &isBanned){
         cout << "Welche Nachricht wollen Sie löschen?" << endl;
         msgNumber = cinNumber();
 
+        //send/receive to/from server
         string msg = "DEL\n"+user+"\n"+to_string(msgNumber)+"\n";
         Client->sendData(msg);
         char result[4098]; int size = 4098;
@@ -267,10 +297,14 @@ void delMail(TCP_Client* Client,const string &user,bool &isBanned){
     }
 }
 void sendMail(TCP_Client* Client,const string &user,bool &isBanned){
+
+    //allow this function, if user is logged in
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
     else {
+
+        //read user input for mail
         string to = "a";
         string subject = "a";
         string msg = "";
@@ -314,6 +348,7 @@ void sendMail(TCP_Client* Client,const string &user,bool &isBanned){
 
         cout << mail;
 
+        //send request to server, receive response
         Client->sendData(mail);
         char result[10];
         int size = 10;
@@ -333,11 +368,14 @@ void sendMail(TCP_Client* Client,const string &user,bool &isBanned){
     }
 }
 void listMail(TCP_Client* Client,const string &user){
+
+    //allow this function, if user is logged in
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
     else
     {
+        //send, receive to/from server
         string msg = "LIST\n"+user+"\n";
         Client->sendData(msg);
 
@@ -349,6 +387,7 @@ void listMail(TCP_Client* Client,const string &user){
         cout << "Nachrichten:" << endl;
         int msgCount = 1, pos=0, i=0;
         //vector <string> subjects;
+        //loop through received mails
         while((pos = response.find("\n")) != string::npos && i<= msgCount && msgCount != 0)
         {
             if(i == 0)

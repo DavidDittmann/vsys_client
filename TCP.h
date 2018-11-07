@@ -28,9 +28,14 @@ private:
 public:
     TCP_Client(int port, string addr);
     ~TCP_Client();
+    //create endpoint for communication and set sock_fd to filedescriptor
     void openSocket();
+    //connects to server on host_addr:host_port
     bool connectToHost();
+    //send msg to server
     void sendData(string msg);
+    //rcv data from server and store in buffer
+    //block max 30 sec with select
     void recvData(int size, char* buffer);
 };
 
