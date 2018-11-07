@@ -12,11 +12,11 @@ all: Client
 
 Client: main.cpp
 	echo "compiling Client: main.cpp..."
-	${CC} ${CFLAGS} makeBin/Client main.cpp TCP.cpp TCP.h
+	${CC} ${CFLAGS} bin/Client main.cpp TCP.cpp TCP.h
 
 
 clean:
 	echo "cleaning binaries..."
 	#rm -rf bin
-	rm -f makeBin/Client
+	rm -f bin/Client
 
