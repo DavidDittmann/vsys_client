@@ -11,11 +11,11 @@ OK das ist ein 2. Test
 
 using namespace std;
 
-bool clientLogic(TCP_Client* Client, string &logenInUser);
-void loginLDAP(TCP_Client* Client,string &logedInUser,int &failedLogins);
-void readMail(TCP_Client* Client,const string &user);
-void delMail(TCP_Client* Client,const string &user);
-void sendMail(TCP_Client* Client,const string &user);
+bool clientLogic(TCP_Client* Client, string &logenInUser,int &failedLogins,bool &isBanned);
+void loginLDAP(TCP_Client* Client,string &logedInUser,int &failedLogins,bool &isBanned);
+void readMail(TCP_Client* Client,const string &user,bool &isBanned);
+void delMail(TCP_Client* Client,const string &user,bool &isBanned);
+void sendMail(TCP_Client* Client,const string &user,bool &isBanned);
 void listMail(TCP_Client* Client,const string &user);
 int cinNumber(void);
 
@@ -23,48 +23,68 @@ int cinNumber(void);
 
 int main(int argc, char* argv[]) {
 
+    bool cancel = false;
     if(argc != 3)
-        cout << "Usage: ./Client <PortNr.> <Address>" << endl;
+    {
+        cout << "Usage: ./Client <Address> <PortNr.>" << endl;
+        cancel = true;
+    }
 
-    int port = stoi(argv[1]);
     string addr = argv[2];
-
-    TCP_Client* Client = new TCP_Client(port,addr);
-
-    __try{
-        cout << "Started new session..." << endl;
-        Client->openSocket();
-        if(Client->connectToHost())
-        {
-            cout << "Connected to host: " << addr << ":" << port << endl;
-        }
-        bool ret = true;
-        string user = "ERROR_USER";
-        while(ret)
-        {
-            ret = clientLogic(Client,user);
-        }
+    long port = -1;
+    port = strtol (argv[1],NULL,10);
+    if(port > 65535 || port < 1024)
+    {
+        cout << "Usage: ./Client <Address> <PortNr.>" << endl;
+        cout << "Port musst be greater than 1024 and smaller than 65535" << endl;
+        cancel = true;
     }
-    catch(runtime_error &e){
-        cout << e.what() << endl;
-        cout << "Closing Client" << endl;
-    }
+    int p = (int) port;
 
-    delete(Client);
+    if(!cancel)
+    {
+        TCP_Client* Client = new TCP_Client(p,addr);
+
+        __try{
+            cout << "Started new session..." << endl;
+            Client->openSocket();
+            if(Client->connectToHost())
+            {
+                cout << "Connected to host: " << addr << ":" << port << endl;
+            }
+            bool ret = true;
+            string user = "ERROR_USER";
+            int failedLogins = 0;
+            bool isBanned = false;
+            while(ret && !isBanned)
+            {
+                ret = clientLogic(Client,user,failedLogins,isBanned);
+            }
+        }
+        catch(runtime_error &e){
+            cout << e.what() << endl;
+            cout << "Closing Client" << endl;
+        }
+
+        delete(Client);
+    }
 
     return 0;
 }
 
-bool clientLogic(TCP_Client* Client,string &logedInUser)
+bool clientLogic(TCP_Client* Client,string &logedInUser,int &failedLogins,bool &isBanned)
 {
-    //CLIENT - LOGIK
-    int failedLogins = 0;
     int option=0;
     bool ret = true;
-    cout << endl << "-----------------------------------------------------------------------------------------------" << endl;
-    cout << "What do u want to do?" << endl;
-    cout << "(0) QUIT | (1) SEND new Mail | (2) LIST all Mails | (3) READ Mail | (4) DELETE Mail | (5) LOGIN" << endl;
-    option = cinNumber();
+    //CLIENT - LOGIK
+    if(!isBanned)
+    {
+        cout << endl << "--------------------------------------------------------------" << endl;
+        cout << "What do u want to do?" << endl;
+        cout << " (0) QUIT \n (1) SEND new Mail \n (2) LIST all Mails \n (3) READ Mail \n (4) DELETE Mail \n (5) LOGIN\n:" << endl;
+        option = cinNumber();
+    }
+
     switch(option)
     {
         case 0: {
@@ -76,7 +96,7 @@ bool clientLogic(TCP_Client* Client,string &logedInUser)
         }
         case 1: //SEND
         {
-            sendMail(Client, logedInUser);
+            sendMail(Client, logedInUser,isBanned);
             break;
         }
         case 2: //LIST
@@ -86,17 +106,17 @@ bool clientLogic(TCP_Client* Client,string &logedInUser)
         }
         case 3: //READ
         {
-            readMail(Client, logedInUser);
+            readMail(Client, logedInUser,isBanned);
             break;
         }
         case 4: //DELETE
         {
-            delMail(Client, logedInUser);
+            delMail(Client, logedInUser,isBanned);
             break;
         }
         case 5: // LOGIN
         {
-            loginLDAP(Client, logedInUser, failedLogins);
+            loginLDAP(Client, logedInUser, failedLogins,isBanned);
             break;
         }
         default:
@@ -107,7 +127,7 @@ bool clientLogic(TCP_Client* Client,string &logedInUser)
     return ret;
 }
 
-void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins) {
+void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins,bool &isBanned) {
     string username="";
     cout << "Enter FHTW username (max 8 letters):";
     do{
@@ -162,18 +182,24 @@ void loginLDAP(TCP_Client* Client,string &logedInUser, int &failedLogins) {
         if(failedLogins>=3)
         {
             cout << "3x failed login - you have been banned from the server!" <<endl;
+            isBanned=true;
         }
         logedInUser="ERROR_USER";
     }
+    else if(strcmp (result,"BAN\n") == 0)
+    {
+        cout << "You got IP-Banned!" << endl;
+        isBanned=true;
+    }
     else if(result!=NULL)
     {
-
-        cout << result << endl;
+        cout << "Other failure" << endl;
         logedInUser="ERROR_USER";
     }
+
 }
 
-void readMail(TCP_Client* Client,const string &user){
+void readMail(TCP_Client* Client,const string &user,bool &isBanned){
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
@@ -193,6 +219,11 @@ void readMail(TCP_Client* Client,const string &user){
         if(response.find("ERR\n")!=string::npos){
             cout << "Server konnte Nachricht nicht finden" << endl;
         }
+        else if(response.find("BAN\n")!=string::npos)
+        {
+            cout << "You got IP-Banned!" << endl;
+            isBanned=true;
+        }
         else if(response.find("OK\n")!=string::npos)
         {
             string msg = response.substr(response.find("OK\n")+3); //TEST RELEVANT
@@ -202,7 +233,7 @@ void readMail(TCP_Client* Client,const string &user){
             cout << "Other Error" << endl;
     }
 }
-void delMail(TCP_Client* Client,const string &user){
+void delMail(TCP_Client* Client,const string &user,bool &isBanned){
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
@@ -219,10 +250,15 @@ void delMail(TCP_Client* Client,const string &user){
         Client->recvData(size,result);
         string response(result);
 
-        if(response.find("ERR\n")>=0){
+        if(response.find("ERR\n")!=string::npos){
             cout << "Server konnte Nachricht nicht finden" << endl;
         }
-        else if(response.find("OK\n")>=0)
+        else if(response.find("BAN\n")!=string::npos)
+        {
+            cout << "You got IP-Banned!" << endl;
+            isBanned=true;
+        }
+        else if(response.find("OK\n")!=string::npos)
         {
             cout << "Nachricht wurde gelöscht" << endl;
         }
@@ -230,7 +266,7 @@ void delMail(TCP_Client* Client,const string &user){
             cout << "Other Error" << endl;
     }
 }
-void sendMail(TCP_Client* Client,const string &user){
+void sendMail(TCP_Client* Client,const string &user,bool &isBanned){
     if(user=="ERROR_USER"){
         cout << "Sie sind nicht eingeloggt!" << endl;
     }
@@ -288,6 +324,9 @@ void sendMail(TCP_Client* Client,const string &user){
             cout << "Server OK" << endl;
         } else if (strcmp(result, "ERR\n") == 0) {
             cout << "Server ERROR" << endl;
+        }else if (strcmp(result, "BAN\n") == 0) {
+            cout << "You got IP-Banned!" << endl;
+            isBanned=true;
         } else {
             cout << "Other error" << endl;
         }
